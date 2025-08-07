@@ -1,7 +1,13 @@
 from machine import Pin, PWM, I2C
 import time
+from pico_i2c_lcd import I2cLcd
 from rotary_irq_rp2 import RotaryIRQ
 from mp_button import Button
+
+import rotary_irq_rp2
+print("rotary_irq_rp2 is a", type(rotary_irq_rp2))
+print("Attributes:", dir(rotary_irq_rp2))
+print("RotaryIRQ is a", type(rotary_irq_rp2.RotaryIRQ))
 
 # Constants
 pulsesPerRevolution = 1 # Anzahl der Magnete am Spindelrad
@@ -14,6 +20,8 @@ targetRPMincr = 250
 
 # Pins
 hall_pin = 11
+i2c_sda_pin = 0
+i2c_scl_pin = 1
 rotary_clk_pin = 2
 rotary_dt_pin = 3
 pwm_pin = 16
@@ -67,15 +75,30 @@ def setPwmPercent(percent):
 # Class and Interrupt Setup
 hallPin = Pin(hall_pin, Pin.IN, Pin.PULL_UP)
 hallPin.irq(trigger=Pin.IRQ_FALLING, handler=hallInterrupt)
-rotaryEncoder = RotaryIRQ(pin_num_clk = 2, pin_num_dt = 3, min_val = 0, max_val = 5000, incr = 250, reverse=False)
+i2c = I2C(0, sda=Pin(i2c_sda_pin), scl=Pin(i2c_scl_pin), freq=400000)
+
+
+addresses = i2c.scan()
+print("I2C addresses found:", addresses)
+if len(addresses) == 0:
+    print("Kein I2C-Gerät gefunden! Bitte Verkabelung prüfen.")
+    while True:
+        time.sleep(1)  # Programm hier anhalten
+
+I2C_ADDR = 0x27 # i2c.scan()[0]
+lcd = I2cLcd(i2c, I2C_ADDR, 2, 16)
+rotaryEncoder = rotary_irq_rp2.RotaryIRQ(pin_num_clk=rotary_clk_pin, pin_num_dt=rotary_dt_pin, min_val=targetRPMmin, max_val=targetRPMmax, incr=targetRPMincr, reverse=False)
 pwmPin = PWM(Pin(pwm_pin))
 pwmPin.freq(2000)
 buttonPin = Button(button_pin, callback=buttonInterrupt, internal_pullup=True)
 
 # Mainloop
+lcd.backlight_on()
+lcd.hide_cursor()
 while True:
     buttonPin.update()
-
+    rotaryEncoder.update()
+    
     targetRPM = rotaryEncoder.value()
 
     if(engagedMatching):
@@ -85,6 +108,11 @@ while True:
             pwmPercentage = max(0, pwmPercentage - pwmPercentageChange)
         setPwmPercent(pwmPercentage)
 
-    print(f"Target: {targetRPM}", f" Smoothed: {int(smoothedRPM)}")
+    lcd.clear()
+    lcd.move_to(0, 0)
+    lcd.putstr(matchCharacter + "Target RPM: " + str(targetRPM))
+    lcd.move_to(0, 1)
+    lcd.putstr(" Smooth RPM: " + str(int(smoothedRPM)))
+    #print(f"Target: {targetRPM}", f" Smoothed: {int(smoothedRPM)}")
 
     time.sleep_ms(200)

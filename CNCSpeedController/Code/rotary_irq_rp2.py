@@ -24,7 +24,7 @@ class RotaryIRQ(Rotary):
         max_val=10,
         incr=1,
         reverse=False,
-        range_mode=Rotary.RANGE_UNBOUNDED,
+        range_mode=Rotary.RANGE_BOUNDED,
         pull_up=False,
         half_step=False,
         invert=False

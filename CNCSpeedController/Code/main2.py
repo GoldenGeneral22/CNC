@@ -10,10 +10,10 @@ minDelta = 500  # Mindestabstand der Impulse in us
 toleranz = 50
 targetRPMmin = 0
 targetRPMmax = 5000
-targetRPMincr = 250
+targetRPMincr = 100
 
 # Pins
-hall_pin = 11
+hall_pin = 14
 rotary_clk_pin = 2
 rotary_dt_pin = 3
 pwm_pin = 16
@@ -33,6 +33,7 @@ matchCharacter = "*"
 def hallInterrupt(pin):
     global lastPulseTime, rpmHistory, rpmHistoryIndex, smoothedRPM
     
+    print("Test")
     now = time.ticks_us()
     deltaTime = time.ticks_diff(now, lastPulseTime)
     if deltaTime > minDelta:
@@ -49,10 +50,11 @@ def hallInterrupt(pin):
 def buttonInterrupt(pin, event):
     global engagedMatching, matchCharacter
     if(event == Button.PRESSED):
+        print("Test")
         if(engagedMatching):
             matchCharacter = "*"
         else:
-            matchCharacter = " "
+            matchCharacter = "/"
         engagedMatching = not engagedMatching
     print(matchCharacter)
 
@@ -67,9 +69,18 @@ def setPwmPercent(percent):
 # Class and Interrupt Setup
 hallPin = Pin(hall_pin, Pin.IN, Pin.PULL_UP)
 hallPin.irq(trigger=Pin.IRQ_FALLING, handler=hallInterrupt)
-rotaryEncoder = RotaryIRQ(pin_num_clk = 2, pin_num_dt = 3, min_val = 0, max_val = 5000, incr = 250, reverse=False)
+
+rotaryEncoder = RotaryIRQ(pin_num_clk = rotary_clk_pin,
+                          pin_num_dt = rotary_dt_pin,
+                          min_val = targetRPMmin,
+                          max_val = targetRPMmax,
+                          incr = targetRPMincr,
+                          reverse=False,
+                          range_mode=RotaryIRQ.RANGE_BOUNDED)
+
 pwmPin = PWM(Pin(pwm_pin))
 pwmPin.freq(2000)
+
 buttonPin = Button(button_pin, callback=buttonInterrupt, internal_pullup=True)
 
 # Mainloop
@@ -85,6 +96,6 @@ while True:
             pwmPercentage = max(0, pwmPercentage - pwmPercentageChange)
         setPwmPercent(pwmPercentage)
 
-    print(f"Target: {targetRPM}", f" Smoothed: {int(smoothedRPM)}")
+    print(matchCharacter, f"Target: {targetRPM}", f" Smoothed: {int(smoothedRPM)}")
 
-    time.sleep_ms(200)
+    time.sleep_ms(100)
